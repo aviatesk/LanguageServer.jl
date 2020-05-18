@@ -13,7 +13,7 @@ function process(r::JSONRPC.Request{Val{Symbol("textDocument/didOpen")},DidOpenT
         doc._version = r.params.textDocument.version
         doc._workspace_file = any(i->startswith(uri, filepath2uri(i)), server.workspaceFolders)
         set_open_in_editor(doc, true)
-        
+
         try_to_load_parents(uri2filepath(uri), server)
     end
     parse_all(doc, server)
@@ -34,7 +34,7 @@ function process(r::JSONRPC.Request{Val{Symbol("textDocument/didClose")},DidClos
             set_open_in_editor(doc, false)
         else
             # ...otherwise we delete all documents that share root with doc.
-            for (u,d) in getdocuments_pair(server)
+            for (u, d) in getdocuments_pair(server)
                 if d.root == doc.root
                     deletedocument!(server, u)
                 end
@@ -75,10 +75,10 @@ function process(r::JSONRPC.Request{Val{Symbol("textDocument/didChange")},DidCha
         error("The client and server have different textDocument versions for $(doc._uri).")
     end
     doc._version = r.params.textDocument.version
-    
+
     if length(r.params.contentChanges) == 1 && !endswith(doc._uri, ".jmd") && !ismissing(first(r.params.contentChanges).range)
         tdcce = first(r.params.contentChanges)
-        new_cst = _partial_update(doc, tdcce) 
+        new_cst = _partial_update(doc, tdcce)
         scopepass(getroot(doc), doc)
         lint!(doc, server)
     else
@@ -122,7 +122,7 @@ function _partial_update(doc::Document, tdcce::TextDocumentContentChangeEvent)
         end
         # remove old blocks
         while old_span + is < new_span && i2 < length(cst.args)
-            i2+=1 
+            i2 += 1
             old_span += cst.args[i2].fullspan
         end
         for i = i1:i2
@@ -130,7 +130,7 @@ function _partial_update(doc::Document, tdcce::TextDocumentContentChangeEvent)
         end
         deleteat!(cst.args, i1:i2)
 
-        #insert new blocks
+        # insert new blocks
         for a in args
             insert!(cst.args, i1, a)
             CSTParser.setparent!(cst.args[i1], cst)
@@ -154,14 +154,14 @@ function cst_len(x, i1 = 1, i2 = length(x.args))
     n = 0
     @inbounds for i = i1:i2
         n += x.args[i].fullspan
-    end    
+    end
     n
 end
 
 function get_update_area(cst, insert_range)
     loc1 = loc2 = 0
     i1 = i2 = 0
-    
+
     while i1 < length(cst.args)
         i1 += 1
         a = cst.args[i1]
@@ -174,7 +174,7 @@ function get_update_area(cst, insert_range)
                     a = cst.args[i2]
                     if loc2 <= last(insert_range) <= loc2 + a.fullspan
                         if i2 < length(cst.args) && last(insert_range) <= loc2 + a.fullspan
-                            i2+=1
+                            i2 += 1
                         end
                         break
                     end
@@ -195,7 +195,7 @@ function convert_lsrange_to_jlrange(doc::Document, range::Range)
     stop_offset = get_offset2(doc, range.stop.line, range.stop.character)
 
     text = get_text(doc)
-    
+
     # we use prevind for the stop value here because Julia stop values in
     # a range are inclusive, while the stop value is exclusive in a LS
     # range
@@ -229,7 +229,7 @@ function parse_all(doc::Document, server::LanguageServerInstance)
         doc.cst.val = doc.path
         set_doc(doc.cst, doc)
     end
-    
+
     scopepass(getroot(doc), doc)
     lint!(doc, server)
 end
@@ -253,14 +253,14 @@ function mark_errors(doc, out = Diagnostic[])
         while line < nlines
             seek(io, line_offsets[line])
             char = 0
-            while line_offsets[line] <= offset < line_offsets[line + 1]  
+            while line_offsets[line] <= offset < line_offsets[line + 1]
                 while offset > position(io)
                     c = read(io, Char)
                     if UInt32(c) >= 0x010000
                         char += 1
                     end
                     char += 1
-                end                  
+                end
                 if start
                     r[1] = line
                     r[2] = char
@@ -272,14 +272,14 @@ function mark_errors(doc, out = Diagnostic[])
                     elseif CSTParser.isidentifier(errs[i][2]) && !StaticLint.haserror(errs[i][2])
                         push!(out, Diagnostic(Range(r[1] - 1, r[2], line - 1, char), DiagnosticSeverities.Warning, "Julia", "Julia", "Missing reference: $(errs[i][2].val)", missing, missing))
                     elseif StaticLint.haserror(errs[i][2]) && StaticLint.errorof(errs[i][2]) isa StaticLint.LintCodes
-                        if  StaticLint.errorof(errs[i][2]) === StaticLint.UnusedFunctionArgument
+                        if StaticLint.errorof(errs[i][2]) === StaticLint.UnusedFunctionArgument
                             push!(out, Diagnostic(Range(r[1] - 1, r[2], line - 1, char), DiagnosticSeverities.Hint, "Julia", "Julia", get(StaticLint.LintCodeDescriptions, StaticLint.errorof(errs[i][2]), ""), [DiagnosticTags.Unnecessary], missing))
                         else
                             push!(out, Diagnostic(Range(r[1] - 1, r[2], line - 1, char), DiagnosticSeverities.Information, "Julia", "Julia", get(StaticLint.LintCodeDescriptions, StaticLint.errorof(errs[i][2]), ""), missing, missing))
                         end
                     end
                     i += 1
-                    i>n && break
+                    i > n && break
                     offset = errs[i][1]
                 end
                 start = !start
@@ -309,7 +309,7 @@ function clear_diagnostics(uri::URI2, server)
     empty!(doc.diagnostics)
     publishDiagnosticsParams = PublishDiagnosticsParams(doc._uri, doc._version, Diagnostic[])
     JSONRPCEndpoints.send_notification(server.jr_endpoint, "textDocument/publishDiagnostics", publishDiagnosticsParams)
-end 
+end
 
 function clear_diagnostics(server)
     for uri in getdocuments_key(server)
@@ -368,14 +368,14 @@ function parse_jmd(ps, str)
 end
 
 function search_for_parent(dir::String, file::String, drop = 3, parents = String[])
-    drop<1 && return parents
+    drop < 1 && return parents
     try
         !isdir(dir) && return parents
         !hasreadperm(dir) && return parents
         for f in readdir(dir)
             filename = joinpath(dir, f)
             if isvalidjlfile(filename)
-                # Could be sped up?            
+                # Could be sped up?
                 content = try
                     s = read(filename, String)
                     isvalid(s) || continue
@@ -392,7 +392,7 @@ function search_for_parent(dir::String, file::String, drop = 3, parents = String
         isa(err, Base.IOError) || isa(err, Base.SystemError) || rethrow()
         return parents
     end
-    
+
     return parents
 end
 
@@ -424,13 +424,13 @@ function is_parentof(parent_path, child_path, server)
     scopepass(getroot(pdoc), pdoc)
     # check whether child has been included automatically
     if any(uri2filepath(k._uri) == child_path for k in getdocuments_key(server) if !(k in previous_server_docs))
-        cdoc = getdocument(server,URI2(filepath2uri(child_path)))
+        cdoc = getdocument(server, URI2(filepath2uri(child_path)))
         parse_all(cdoc, server)
         scopepass(getroot(cdoc))
         return true
     else
         # clean up
-        foreach(k-> !(k in previous_server_docs) && deletedocument!(server, k), getdocuments_key(server))
+        foreach(k->!(k in previous_server_docs) && deletedocument!(server, k), getdocuments_key(server))
         return false
     end
 end
@@ -439,7 +439,7 @@ function try_to_load_parents(child_path, server)
     for p in search_for_parent(splitdir(child_path)...)
         p == child_path && continue
         success = is_parentof(p, child_path, server)
-        if success 
+        if success
             return try_to_load_parents(p, server)
         end
     end
